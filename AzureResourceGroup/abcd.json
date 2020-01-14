@@ -1,0 +1,258 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "gmail_1_Connection_Name": {
+      "type": "string",
+      "defaultValue": "gmail"
+    },
+    "gmail_1_Connection_DisplayName": {
+      "type": "string",
+      "defaultValue": "dhruvkinger813@gmail.com"
+    },
+    "twitter_1_Connection_Name": {
+      "type": "string",
+      "defaultValue": "twitter"
+    },
+    "twitter_1_Connection_DisplayName": {
+      "type": "string",
+      "defaultValue": "KingerDhruv"
+    },
+    "cognitiveservicestextanalytics_1_Connection_Name": {
+      "type": "string",
+      "defaultValue": "cognitiveservicestextanalytics"
+    },
+    "cognitiveservicestextanalytics_1_Connection_DisplayName": {
+      "type": "string",
+      "defaultValue": "Charpcorner"
+    },
+    "cognitiveservicestextanalytics_1_apiKey": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Cognitive Services Account Key"
+      }
+    },
+    "cognitiveservicestextanalytics_1_siteUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Root site url (Example: https://westus.api.cognitive.microsoft.com). If not specified, site url will be defaulted to https://westus.api.cognitive.microsoft.com."
+      },
+      "defaultValue": "https://eastus.api.cognitive.microsoft.com/text/analytics/v2.1/sentiment"
+    },
+    "LogicAppLocation": {
+      "type": "string",
+      "minLength": 1,
+      "allowedValues": [
+        "[resourceGroup().location]",
+        "eastasia",
+        "southeastasia",
+        "centralus",
+        "eastus",
+        "eastus2",
+        "westus",
+        "northcentralus",
+        "southcentralus",
+        "northeurope",
+        "westeurope",
+        "japanwest",
+        "japaneast",
+        "brazilsouth",
+        "australiaeast",
+        "australiasoutheast",
+        "southindia",
+        "centralindia",
+        "westindia",
+        "canadacentral",
+        "canadaeast",
+        "uksouth",
+        "ukwest",
+        "westcentralus",
+        "westus2",
+        "koreacentral",
+        "koreasouth",
+        "francecentral",
+        "francesouth",
+        "southafricanorth",
+        "southafricawest"
+      ],
+      "defaultValue": "northcentralus"
+    },
+    "LogicAppName": {
+      "type": "string",
+      "minLength": 1,
+      "defaultValue": "abcd"
+    }
+  },
+  "variables": {},
+  "resources": [
+    {
+      "properties": {
+        "state": "Enabled",
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "actions": {
+            "Condition": {
+              "type": "If",
+              "expression": {
+                "and": [
+                  {
+                    "less": [
+                      "@body('Detect_Sentiment')?['score']",
+                      "@float('0.5')"
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+                "Send_email": {
+                  "type": "ApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connection": {
+                        "name": "@parameters('$connections')['gmail']['connectionId']"
+                      }
+                    },
+                    "method": "post",
+                    "body": {
+                      "To": "cse1785@gmail.com ",
+                      "Subject": "Negative Feedback",
+                      "Body": "score is @{body('Detect_Sentiment')?['score']}. tweet was @{triggerBody()?['TweetText']}",
+                      "Importance": "High"
+                    },
+                    "path": "/Mail"
+                  },
+                  "runAfter": {}
+                }
+              },
+              "runAfter": {
+                "Detect_Sentiment": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Detect_Sentiment": {
+              "type": "ApiConnection",
+              "inputs": {
+                "host": {
+                  "connection": {
+                    "name": "@parameters('$connections')['cognitiveservicestextanalytics']['connectionId']"
+                  }
+                },
+                "method": "post",
+                "body": {
+                  "text": "@triggerBody()?['TweetText']"
+                },
+                "path": "/text/analytics/v2.1/sentiment"
+              },
+              "runAfter": {}
+            }
+          },
+          "parameters": {
+            "$connections": {
+              "defaultValue": {},
+              "type": "Object"
+            }
+          },
+          "triggers": {
+            "When_a_new_tweet_is_posted": {
+              "type": "ApiConnection",
+              "inputs": {
+                "host": {
+                  "connection": {
+                    "name": "@parameters('$connections')['twitter']['connectionId']"
+                  }
+                },
+                "method": "get",
+                "path": "/onnewtweet",
+                "queries": {
+                  "searchQuery": "csharpcorner"
+                }
+              },
+              "recurrence": {
+                "frequency": "Second",
+                "interval": 15
+              },
+              "splitOn": "@triggerBody()?['value']"
+            }
+          },
+          "contentVersion": "1.0.0.0",
+          "outputs": {}
+        },
+        "parameters": {
+          "$connections": {
+            "value": {
+              "gmail": {
+                "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', 'northcentralus', '/managedApis/', 'gmail')]",
+                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('gmail_1_Connection_Name'))]",
+                "connectionName": "[parameters('gmail_1_Connection_Name')]"
+              },
+              "cognitiveservicestextanalytics": {
+                "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', 'northcentralus', '/managedApis/', 'cognitiveservicestextanalytics')]",
+                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('cognitiveservicestextanalytics_1_Connection_Name'))]",
+                "connectionName": "[parameters('cognitiveservicestextanalytics_1_Connection_Name')]"
+              },
+              "twitter": {
+                "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', 'northcentralus', '/managedApis/', 'twitter')]",
+                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('twitter_1_Connection_Name'))]",
+                "connectionName": "[parameters('twitter_1_Connection_Name')]"
+              }
+            }
+          }
+        }
+      },
+      "name": "[parameters('LogicAppName')]",
+      "type": "Microsoft.Logic/workflows",
+      "location": "[parameters('LogicAppLocation')]",
+      "tags": {
+        "displayName": "LogicApp"
+      },
+      "apiVersion": "2016-06-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/connections', parameters('gmail_1_Connection_Name'))]",
+        "[resourceId('Microsoft.Web/connections', parameters('cognitiveservicestextanalytics_1_Connection_Name'))]",
+        "[resourceId('Microsoft.Web/connections', parameters('twitter_1_Connection_Name'))]"
+      ]
+    },
+    {
+      "type": "MICROSOFT.WEB/CONNECTIONS",
+      "apiVersion": "2018-07-01-preview",
+      "name": "[parameters('gmail_1_Connection_Name')]",
+      "location": "northcentralus",
+      "properties": {
+        "api": {
+          "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', 'northcentralus', '/managedApis/', 'gmail')]"
+        },
+        "displayName": "[parameters('gmail_1_Connection_DisplayName')]"
+      }
+    },
+    {
+      "type": "MICROSOFT.WEB/CONNECTIONS",
+      "apiVersion": "2018-07-01-preview",
+      "name": "[parameters('twitter_1_Connection_Name')]",
+      "location": "northcentralus",
+      "properties": {
+        "api": {
+          "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', 'northcentralus', '/managedApis/', 'twitter')]"
+        },
+        "displayName": "[parameters('twitter_1_Connection_DisplayName')]"
+      }
+    },
+    {
+      "type": "MICROSOFT.WEB/CONNECTIONS",
+      "apiVersion": "2018-07-01-preview",
+      "name": "[parameters('cognitiveservicestextanalytics_1_Connection_Name')]",
+      "location": "northcentralus",
+      "properties": {
+        "api": {
+          "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', 'northcentralus', '/managedApis/', 'cognitiveservicestextanalytics')]"
+        },
+        "displayName": "[parameters('cognitiveservicestextanalytics_1_Connection_DisplayName')]",
+        "parameterValues": {
+          "apiKey": "[parameters('cognitiveservicestextanalytics_1_apiKey')]",
+          "siteUrl": "[parameters('cognitiveservicestextanalytics_1_siteUrl')]"
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}
