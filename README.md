@@ -1,2 +1,2 @@
 # LogicApp-onVisualStudio
-Using ARM(Azure Resource Manager) template created a Logic App on Visual Studio 
+Using ARM(Azure Resource Manager) template created a Logic App on Visual Studio 2017.
